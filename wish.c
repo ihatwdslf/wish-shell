@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/wait.h>
 #define MAX_ARGS 64
 
 void print_error(void) {
@@ -24,6 +25,25 @@ int parse_args(char *cmd, char **args) {
     }
     args[n] = NULL;
     return n;
+}
+
+void run_command(char **args) {
+    char path[256];
+    snprintf(path, sizeof(path), "/bin/%s", args[0]);
+
+    pid_t pid = fork();
+    if (pid < 0) {
+        print_error();
+        return;
+    }
+
+    if (pid == 0) {
+        execv(path, args);
+        print_error();  // execv повертається лише при помилці
+        exit(1);
+    }
+
+    waitpid(pid, NULL, 0);
 }
 
 int main(int argc, char *argv[]) {
@@ -58,12 +78,17 @@ int main(int argc, char *argv[]) {
             break;      // EOF
         }
 
-        char *args[MAX_ARGS];
+                char *args[MAX_ARGS];
         int argn = parse_args(line, args);
+        
         if (argn == -1) {
             print_error();
             continue;
         }
+        if (argn == 0) {
+            continue;   // порожній рядок
+        }
+
         if (strcmp(args[0], "exit") == 0) {
             if (argn != 1) {
                 print_error();
@@ -72,9 +97,7 @@ int main(int argc, char *argv[]) {
             break;
         }
 
-        for (int i = 0; i < argn; i++) {
-            printf("arg[%d] = '%s'\n", i, args[i]);  // debug
-        }
+        run_command(args);
     }
 
     free(line);
