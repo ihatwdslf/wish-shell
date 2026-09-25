@@ -64,8 +64,12 @@ int main(int argc, char *argv[]) {
             print_error();
             continue;
         }
-        if (argn == 0) {
-            continue;   // порожній рядок
+        if (strcmp(args[0], "exit") == 0) {
+            if (argn != 1) {
+                print_error();
+                continue;
+            }
+            break;
         }
 
         for (int i = 0; i < argn; i++) {
