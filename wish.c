@@ -2,10 +2,28 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#define MAX_ARGS 64
 
 void print_error(void) {
     char error_message[30] = "An error has occurred\n";
     write(STDERR_FILENO, error_message, strlen(error_message));
+}
+
+int parse_args(char *cmd, char **args) {
+    int n = 0;
+    char *token;
+
+    while ((token = strsep(&cmd, " \t\n")) != NULL) {
+        if (*token == '\0') {
+            continue;   // роздільники підряд
+        }
+        if (n == MAX_ARGS - 1) {
+            return -1;  // забагато аргументів
+        }
+        args[n++] = token;
+    }
+    args[n] = NULL;
+    return n;
 }
 
 int main(int argc, char *argv[]) {
@@ -40,7 +58,19 @@ int main(int argc, char *argv[]) {
             break;      // EOF
         }
 
-        printf("you typed: %s", line);  // debug
+        char *args[MAX_ARGS];
+        int argn = parse_args(line, args);
+        if (argn == -1) {
+            print_error();
+            continue;
+        }
+        if (argn == 0) {
+            continue;   // порожній рядок
+        }
+
+        for (int i = 0; i < argn; i++) {
+            printf("arg[%d] = '%s'\n", i, args[i]);  // debug
+        }
     }
 
     free(line);
