@@ -7,6 +7,7 @@
 
 #define MAX_ARGS 64
 #define MAX_PATHS 64
+#define MAX_CMDS 64
 
 char *paths[MAX_PATHS];  // список папок для пошуку
 int npaths = 0;
@@ -75,17 +76,17 @@ void set_path(char **args, int argn) {
     }
 }
 
-void run_command(char **args, char *outfile) {
+pid_t run_command(char **args, char *outfile) {
     char path[256];
     if (find_executable(args[0], path, sizeof(path)) == -1) {
         print_error();
-        return;
+        return 0;
     }
 
     pid_t pid = fork();
     if (pid < 0) {
         print_error();
-        return;
+        return 0;
     }
 
     if (pid == 0) {
@@ -104,10 +105,10 @@ void run_command(char **args, char *outfile) {
         exit(1);
     }
 
-    waitpid(pid, NULL, 0);
+    return pid;
 }
 
-int execute(char *cmd) {
+pid_t execute(char *cmd) {
     char *outfile;
     if (parse_redirect(cmd, &outfile) == -1) {
         print_error();
@@ -147,8 +148,7 @@ int execute(char *cmd) {
         return 0;
     }
 
-    run_command(args, outfile);
-    return 0;
+    return run_command(args, outfile);
 }
 
 int main(int argc, char *argv[]) {
@@ -187,13 +187,28 @@ int main(int argc, char *argv[]) {
             break;      // EOF
         }
 
+        pid_t pids[MAX_CMDS];
+        int npids = 0;
+
         char *rest = line;
         char *cmd;
         while ((cmd = strsep(&rest, "&")) != NULL) {
-            if (execute(cmd) == -1) {
+            pid_t pid = execute(cmd);
+            if (pid == -1) {
                 done = 1;   // exit
                 break;
             }
+            if (pid > 0) {
+                if (npids < MAX_CMDS) {
+                    pids[npids++] = pid;
+                } else {
+                    waitpid(pid, NULL, 0);  // масив заповнений
+                }
+            }
+        }
+
+        for (int i = 0; i < npids; i++) {
+            waitpid(pids[i], NULL, 0);
         }
     }
 
