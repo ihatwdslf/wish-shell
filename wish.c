@@ -131,6 +131,13 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
+        if (strcmp(args[0], "cd") == 0) {
+            if (argn != 2 || chdir(args[1]) != 0) {
+                print_error();
+            }
+            continue;
+        }
+
         run_command(args);
     }
 
