@@ -31,6 +31,28 @@ int parse_args(char *cmd, char **args) {
     return n;
 }
 
+int parse_redirect(char *cmd, char **outfile) {
+    *outfile = NULL;
+
+    char *gt = strchr(cmd, '>');
+    if (gt == NULL) {
+        return 0;   // перенаправлення немає
+    }
+    *gt = '\0';
+
+    char *rest = gt + 1;
+    if (strchr(rest, '>') != NULL) {
+        return -1;  // більше одного '>'
+    }
+
+    char *files[MAX_ARGS];
+    if (parse_args(rest, files) != 1) {
+        return -1;  // немає файлу або файлів кілька
+    }
+    *outfile = files[0];
+    return 0;
+}
+
 int find_executable(char *cmd, char *full, size_t size) {
     for (int i = 0; i < npaths; i++) {
         snprintf(full, size, "%s/%s", paths[i], cmd);
@@ -108,14 +130,24 @@ int main(int argc, char *argv[]) {
             break;      // EOF
         }
 
-            char *args[MAX_ARGS];
+        char *outfile;
+        if (parse_redirect(line, &outfile) == -1) {
+            print_error();
+            continue;
+        }
+
+        char *args[MAX_ARGS];
         int argn = parse_args(line, args);
         if (argn == -1) {
             print_error();
             continue;
         }
+        
         if (argn == 0) {
-            continue;   // порожній рядок
+            if (outfile != NULL) {
+                print_error();  // '>' без команди
+            }
+            continue;
         }
 
         if (strcmp(args[0], "exit") == 0) {
