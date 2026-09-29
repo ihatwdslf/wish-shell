@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <fcntl.h>
+
 #define MAX_ARGS 64
 #define MAX_PATHS 64
 
@@ -106,6 +107,50 @@ void run_command(char **args, char *outfile) {
     waitpid(pid, NULL, 0);
 }
 
+int execute(char *cmd) {
+    char *outfile;
+    if (parse_redirect(cmd, &outfile) == -1) {
+        print_error();
+        return 0;
+    }
+
+    char *args[MAX_ARGS];
+    int argn = parse_args(cmd, args);
+    if (argn == -1) {
+        print_error();
+        return 0;
+    }
+    if (argn == 0) {
+        if (outfile != NULL) {
+            print_error();  // '>' без команди
+        }
+        return 0;
+    }
+
+    if (strcmp(args[0], "exit") == 0) {
+        if (argn != 1) {
+            print_error();
+            return 0;
+        }
+        return -1;
+    }
+
+    if (strcmp(args[0], "path") == 0) {
+        set_path(args, argn);
+        return 0;
+    }
+
+    if (strcmp(args[0], "cd") == 0) {
+        if (argn != 2 || chdir(args[1]) != 0) {
+            print_error();
+        }
+        return 0;
+    }
+
+    run_command(args, outfile);
+    return 0;
+}
+
 int main(int argc, char *argv[]) {
     FILE *input = stdin;
     int interactive = 1;
@@ -129,8 +174,9 @@ int main(int argc, char *argv[]) {
 
     char *line = NULL;  // буфер
     size_t cap = 0;     // розмір буфера
+    int done = 0;
 
-    while (1) {
+    while (!done) {
         if (interactive) {
             printf("wish> ");
             fflush(stdout);
@@ -141,47 +187,14 @@ int main(int argc, char *argv[]) {
             break;      // EOF
         }
 
-        char *outfile;
-        if (parse_redirect(line, &outfile) == -1) {
-            print_error();
-            continue;
-        }
-
-        char *args[MAX_ARGS];
-        int argn = parse_args(line, args);
-        if (argn == -1) {
-            print_error();
-            continue;
-        }
-
-        if (argn == 0) {
-            if (outfile != NULL) {
-                print_error();  // '>' без команди
+        char *rest = line;
+        char *cmd;
+        while ((cmd = strsep(&rest, "&")) != NULL) {
+            if (execute(cmd) == -1) {
+                done = 1;   // exit
+                break;
             }
-            continue;
         }
-
-        if (strcmp(args[0], "exit") == 0) {
-            if (argn != 1) {
-                print_error();
-                continue;
-            }
-            break;
-        }
-
-        if (strcmp(args[0], "path") == 0) {
-            set_path(args, argn);
-            continue;
-        }
-
-        if (strcmp(args[0], "cd") == 0) {
-            if (argn != 2 || chdir(args[1]) != 0) {
-                print_error();
-            }
-            continue;
-        }
-
-            run_command(args, outfile);
     }
 
     free(line);
