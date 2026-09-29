@@ -41,6 +41,16 @@ int find_executable(char *cmd, char *full, size_t size) {
     return -1;
 }
 
+void set_path(char **args, int argn) {
+    for (int i = 0; i < npaths; i++) {
+        free(paths[i]);
+    }
+    npaths = 0;
+    for (int i = 1; i < argn && npaths < MAX_PATHS; i++) {
+        paths[npaths++] = strdup(args[i]);
+    }
+}
+
 void run_command(char **args) {
     char path[256];
     if (find_executable(args[0], path, sizeof(path)) == -1) {
@@ -98,9 +108,8 @@ int main(int argc, char *argv[]) {
             break;      // EOF
         }
 
-                char *args[MAX_ARGS];
+            char *args[MAX_ARGS];
         int argn = parse_args(line, args);
-        
         if (argn == -1) {
             print_error();
             continue;
@@ -117,6 +126,11 @@ int main(int argc, char *argv[]) {
             break;
         }
 
+        if (strcmp(args[0], "path") == 0) {
+            set_path(args, argn);
+            continue;
+        }
+
         run_command(args);
     }
 
@@ -126,8 +140,8 @@ int main(int argc, char *argv[]) {
     }
 
     for (int i = 0; i < npaths; i++) {
-    free(paths[i]);
+        free(paths[i]);
     }
-    
+
     exit(0);
 }
