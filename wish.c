@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <fcntl.h>
 #define MAX_ARGS 64
 #define MAX_PATHS 64
 
@@ -73,7 +74,7 @@ void set_path(char **args, int argn) {
     }
 }
 
-void run_command(char **args) {
+void run_command(char **args, char *outfile) {
     char path[256];
     if (find_executable(args[0], path, sizeof(path)) == -1) {
         print_error();
@@ -87,6 +88,16 @@ void run_command(char **args) {
     }
 
     if (pid == 0) {
+        if (outfile != NULL) {
+            int fd = open(outfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+            if (fd < 0) {
+                print_error();
+                exit(1);
+            }
+            dup2(fd, STDOUT_FILENO);
+            dup2(fd, STDERR_FILENO);
+            close(fd);
+        }
         execv(path, args);
         print_error();  // execv повертається лише при помилці
         exit(1);
@@ -142,7 +153,7 @@ int main(int argc, char *argv[]) {
             print_error();
             continue;
         }
-        
+
         if (argn == 0) {
             if (outfile != NULL) {
                 print_error();  // '>' без команди
@@ -170,7 +181,7 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
-        run_command(args);
+            run_command(args, outfile);
     }
 
     free(line);
