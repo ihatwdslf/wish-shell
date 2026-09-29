@@ -4,6 +4,10 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #define MAX_ARGS 64
+#define MAX_PATHS 64
+
+char *paths[MAX_PATHS];  // список папок для пошуку
+int npaths = 0;
 
 void print_error(void) {
     char error_message[30] = "An error has occurred\n";
@@ -27,9 +31,22 @@ int parse_args(char *cmd, char **args) {
     return n;
 }
 
+int find_executable(char *cmd, char *full, size_t size) {
+    for (int i = 0; i < npaths; i++) {
+        snprintf(full, size, "%s/%s", paths[i], cmd);
+        if (access(full, X_OK) == 0) {
+            return 0;
+        }
+    }
+    return -1;
+}
+
 void run_command(char **args) {
     char path[256];
-    snprintf(path, sizeof(path), "/bin/%s", args[0]);
+    if (find_executable(args[0], path, sizeof(path)) == -1) {
+        print_error();
+        return;
+    }
 
     pid_t pid = fork();
     if (pid < 0) {
@@ -63,6 +80,9 @@ int main(int argc, char *argv[]) {
         }
         interactive = 0;
     }
+
+    paths[0] = strdup("/bin");
+    npaths = 1;
 
     char *line = NULL;  // буфер
     size_t cap = 0;     // розмір буфера
@@ -104,5 +124,10 @@ int main(int argc, char *argv[]) {
     if (input != stdin) {
         fclose(input);
     }
+
+    for (int i = 0; i < npaths; i++) {
+    free(paths[i]);
+    }
+    
     exit(0);
 }
